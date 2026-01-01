@@ -233,7 +233,7 @@ if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(description="Yargitay Decision Uploader")
     parser.add_argument("file", nargs="?", help="Path to JSON file to process")
-    parser.add_argument("--fetch", type=str, help="Search query to fetch from API")
+    parser.add_argument("--fetch", type=str, nargs='+', help="Search query (or queries) to fetch from API")
     parser.add_argument("--limit", type=int, default=100, help="Number of records to fetch")
     
     args = parser.parse_args()
@@ -242,47 +242,72 @@ if __name__ == "__main__":
     
     # 1. Fetch Mode
     if args.fetch:
-        print(f"Starting fetch mode for query: '{args.fetch}'")
         fetcher = YargitayFetcher()
-        # Fetch logic (simple pagination loop could be added here, for now single page limit)
-        # Note: API might limit page size, so we might need multiple requests if limit > 100
-        
-        all_results = []
-        page = 1
-        page_size = 50 
-        total_needed = args.limit
-        
-        while len(all_results) < total_needed:
-            # Adjust remaining
-            remaining = total_needed - len(all_results)
-            current_limit = min(page_size, remaining)
+        # Support multiple keywords: 
+        # 1. As separate args: --fetch "dava" "boşanma" -> ['dava', 'boşanma']
+        # 2. As comma strings: --fetch "dava,boşanma" -> ['dava,boşanma']
+        # Combine and flatten:
+        raw_keywords = args.fetch # This is a list
+        keywords = []
+        for k in raw_keywords:
+            # Split by comma if present
+            keywords.extend([sub.strip() for sub in k.split(',') if sub.strip()])
             
-            # Fetch
-            batch = fetcher.search(query=args.fetch, limit=page_size, page=page)
-            if not batch:
-                break
+        total_global_fetched = 0
+        
+        for query in keywords:
+            print(f"\n{'='*40}")
+            print(f"Starting fetch loop for: '{query}'")
+            print(f"{'='*40}")
             
-            # Enrich batch with full text
-            print(f"Fetching full text for {len(batch)} records...")
-            for i, record in enumerate(batch):
-                rec_id = record.get('id')
-                if rec_id:
-                    print(f"[{i+1}/{len(batch)}] Downloading content for ID {rec_id}...", end='\r')
-                    full_text = fetcher.get_decision_text(str(rec_id))
-                    record['icerik_ham'] = full_text
-            print("") # newline
+            page = 1
+            page_size = 50 
+            fetched_for_query = 0
+            
+            # Run until limit or no more results
+            while fetched_for_query < args.limit:
+                remaining = args.limit - fetched_for_query
+                current_limit = min(page_size, remaining)
                 
-            all_results.extend(batch)
-            page += 1
-            
-            # small delay to be nice to API
-            import time
-            time.sleep(1)
-            
-        print(f"Fetched {len(all_results)} records from API.")
-        
-        # Save temp file
-        timestamp = int(time.time())
+                print(f"Fetching page {page} for '{query}'...")
+                
+                # Fetch
+                try:
+                    batch = fetcher.search(query=query, limit=page_size, page=page)
+                except Exception as e:
+                    print(f"Search failed: {e}")
+                    time.sleep(10)
+                    continue
+
+                if not batch:
+                    print(f"No more results for '{query}'.")
+                    break
+                
+                # Enrich batch with full text
+                print(f"Fetching full text for {len(batch)} records...")
+                enriched_batch = []
+                for i, record in enumerate(batch):
+                    rec_id = record.get('id')
+                    if rec_id:
+                        print(f"[{i+1}/{len(batch)}] Downloading content for ID {rec_id}...", end='\r')
+                        full_text = fetcher.get_decision_text(str(rec_id))
+                        record['icerik_ham'] = full_text
+                        enriched_batch.append(record)
+                print("") # newline
+                    
+                # Process and Upload Batch immediately
+                if enriched_batch:
+                    uploader.process_data(enriched_batch)
+                
+                fetched_count = len(batch)
+                fetched_for_query += fetched_count
+                total_global_fetched += fetched_count
+                page += 1
+                
+                # Add a delay between pages to prevent banning
+                time.sleep(2)
+                
+        print(f"\nGlobal processing complete. Total records: {total_global_fetched}")
         temp_file = f"downloaded_data/api_fetch_{timestamp}.json"
         os.makedirs("downloaded_data", exist_ok=True)
         
