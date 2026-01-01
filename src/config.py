@@ -12,6 +12,7 @@ class Config:
     _db_url = os.getenv("DATABASE_URL", "")
     if _db_url:
         _db_url = _db_url.strip().strip("'").strip('"')
+        print(f"DEBUG: Sanitized DATABASE_URL. Length: {len(_db_url)}")
     DATABASE_URL = _db_url
 
     HF_TOKEN = os.getenv("HF_TOKEN")
