@@ -7,8 +7,13 @@ load_dotenv()
 class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-    DATABASE_URL = os.getenv("DATABASE_URL")
     
+    # Clean up DATABASE_URL to avoid Copy-Paste errors (spaces, quotes)
+    _db_url = os.getenv("DATABASE_URL", "")
+    if _db_url:
+        _db_url = _db_url.strip().strip("'").strip('"')
+    DATABASE_URL = _db_url
+
     HF_TOKEN = os.getenv("HF_TOKEN")
     HF_REPO_ID = os.getenv("HF_REPO_ID") # username/repo-name
     
