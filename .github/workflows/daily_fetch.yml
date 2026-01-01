@@ -4,7 +4,16 @@ on:
   schedule:
     # Runs at 00:00 UTC every day
     - cron: '0 0 * * *'
-  workflow_dispatch: # Allows manual triggering from GitHub UI
+  workflow_dispatch:
+    inputs:
+      fetch_query:
+        description: 'Search terms (e.g. "madde" "kanun")'
+        required: true
+        default: '"tapu iptali"'
+      limit:
+        description: 'Fetch limit'
+        required: true
+        default: '100'
 
 jobs:
   fetch-and-upload:
@@ -33,6 +42,17 @@ jobs:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       run: |
-        # Fetch 100 records for 'tapu iptali'
-        python -m src.uploader --fetch "madde" "kanun" "dava" "mahkeme" "karar" --limit 100000
+        # Use inputs if available, otherwise default to cron values (which we can hardcode logic for if needed, but for now we rely on defaults)
+        # Note: For cron schedules, inputs are not available. We need a fallback or separate step.
+        
+        QUERY="${{ inputs.fetch_query }}"
+        LIMIT="${{ inputs.limit }}"
+        
+        if [ -z "$QUERY" ]; then
+          QUERY='"tapu iptali"'
+          LIMIT="100"
+        fi
+        
+        echo "Running query: $QUERY with limit: $LIMIT"
+        python -m src.uploader --fetch $QUERY --limit $LIMIT
         # You can add more lines here for other queries
