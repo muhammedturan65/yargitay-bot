@@ -308,14 +308,8 @@ if __name__ == "__main__":
                 time.sleep(2)
                 
         print(f"\nGlobal processing complete. Total records: {total_global_fetched}")
-        temp_file = f"downloaded_data/api_fetch_{timestamp}.json"
-        os.makedirs("downloaded_data", exist_ok=True)
-        
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            json.dump(all_results, f, ensure_ascii=False, indent=2)
-            
-        # Process
-        uploader.process_file(temp_file)
+        # Processing complete
+        pass
 
     # 2. File Mode (Command Line Arg)
     elif args.file:
