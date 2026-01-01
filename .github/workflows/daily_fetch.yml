@@ -49,8 +49,8 @@ jobs:
         LIMIT="${{ inputs.limit }}"
         
         if [ -z "$QUERY" ]; then
-          QUERY='"tapu iptali"'
-          LIMIT="100"
+          QUERY='"madde" "kanun" "dava" "mahkeme" "karar"'
+          LIMIT="100000"
         fi
         
         echo "Running query: $QUERY with limit: $LIMIT"
