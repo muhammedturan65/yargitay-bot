@@ -34,5 +34,5 @@ jobs:
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       run: |
         # Fetch 100 records for 'tapu iptali'
-        python -m src.uploader --fetch "tapu iptali" --limit 100
+        python -m src.uploader --fetch "madde" "kanun" "dava" "mahkeme" "karar" --limit 100000
         # You can add more lines here for other queries
