@@ -80,6 +80,92 @@ class Uploader:
                 
         return metadata
 
+    def process_data(self, data: List[Dict]):
+        """
+        Processes a list of records (dicts) in batches.
+        """
+        print(f"Total records found: {len(data)}")
+        
+        batch = []
+        for i, record in enumerate(data):
+            # Extract ID (support both 'id' and 'Id')
+            record_id = record.get("id") or record.get("Id")
+            if not record_id:
+                continue
+
+            extracted = {}
+            summary = ""
+            storage_object = {}
+
+            # Distinguish between our API format and legacy format
+            if "icerik_ham" in record and "daire" in record and "esasNo" in record:
+                # API Format or previously enriched format
+                content = record.get('icerik_ham', '')
+                
+                # Use metadata from record directly
+                extracted = {
+                    "daire": record.get("daire"),
+                    "esas_no": record.get("esasNo"),
+                    "karar_no": record.get("kararNo"),
+                    "karar_tarihi": record.get("kararTarihi")
+                }
+                summary = record.get('ai_ozet', '')
+                
+                storage_object = {
+                    "id": str(record.get("id")),
+                    "daire": record.get("daire"),
+                    "esasNo": record.get("esasNo"),
+                    "kararNo": record.get("kararNo"),
+                    "kararTarihi": record.get("kararTarihi"),
+                    "icerik_ham": content,
+                    "ai_ozet": summary
+                }
+                # Add optional fields
+                if "arananKelime" in record:
+                    storage_object["arananKelime"] = record["arananKelime"]
+
+            else:
+                # Raw legacy extraction logic (fallback)
+                content = record.get('icerik_ham', '')
+                if not content: continue
+                
+                extracted = self.extract_metadata(content)
+                summary = record.get('ai_ozet') or content[:200]
+                
+                storage_object = {
+                    "id": str(record.get("id")), 
+                    "daire": extracted.get("daire"),
+                    "esasNo": extracted.get("esas_no"),
+                    "kararNo": extracted.get("karar_no"),
+                    "kararTarihi": extracted.get("karar_tarihi"),
+                    "icerik_ham": content,
+                    "ai_ozet": summary
+                }
+
+            # Truncate summary
+            if summary and len(summary) > 250:
+                summary = summary[:250] + "..."
+
+            batch.append({
+                "storage_object": storage_object,
+                "metadata": {
+                    "id": int(record_id) if str(record_id).isdigit() else 0,
+                    "daire": extracted.get("daire"),
+                    "esas_no": extracted.get("esas_no"),
+                    "karar_no": extracted.get("karar_no"),
+                    "karar_tarihi": extracted.get("karar_tarihi"),
+                    "ozet": summary
+                }
+            })
+            
+            if len(batch) >= self.BATCH_SIZE:
+                self._upload_and_index(batch)
+                batch = []
+        
+        # Flush remaining
+        if batch:
+            self._upload_and_index(batch)
+
     def process_file(self, file_path: str):
         """
         Reads the large SQL/JSON file and processes in batches.
